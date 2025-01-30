@@ -14,6 +14,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# NOTE:  this script prints a raw HTTP/1.1 format AWS S3 put-object command that can be pasted into openssl
+
 source ./tests/rest_scripts/rest.sh
 
 # Fields
@@ -33,23 +35,11 @@ build_canonical_request_string() {
 /$bucket_name/$key
 
 "
-  if [ "$content_encoding" != "" ]; then
-    canonical_request+="content-encoding:$content_encoding
-"
-    signed_params=$(add_parameter "$signed_params" "content-encoding" ";")
-  fi
-  if [ "$CONTENT_LENGTH" != "" ]; then
-    canonical_request+="content-length:$CONTENT_LENGTH
+  canonical_request+="content-length:$CONTENT_LENGTH
 "
     signed_params=$(add_parameter "$signed_params" "content-length" ";")
-  fi
   canonical_request+="host:$host
 "
-  if [ "$CHECKSUM" != "" ]; then
-    canonical_request+="x-amz-checksum-sha256:$checksum_hash
-"
-    signed_params=$(add_parameter "$signed_params" "x-amz-checksum-sha256" ";")
-  fi
   signed_params=$(add_parameter "$signed_params" "host" ";")
   canonical_request+="x-amz-content-sha256:$payload_hash
 "
@@ -57,11 +47,6 @@ build_canonical_request_string() {
   canonical_request+="x-amz-date:$current_date_time
 "
   signed_params=$(add_parameter "$signed_params" "x-amz-date" ";")
-  if [ "$DECODED_CONTENT_LENGTH" != "" ]; then
-    canonical_request+="x-amz-decoded-content-length:$decoded_content_length
-"
-    signed_params=$(add_parameter "$signed_params" "x-amz-decoded-content-length" ";")
-  fi
   canonical_request+="
 $signed_params
 $payload_hash"
