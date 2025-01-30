@@ -48,10 +48,14 @@ create_canonical_hash_sts_and_signature() {
   # shellcheck disable=SC2154
   year_month_day="$(echo "$current_date_time" | cut -c1-8)"
 
-  sts_data="AWS4-HMAC-SHA256
+  if [ $# -eq 0 ]; then
+    sts_data="AWS4-HMAC-SHA256
 $current_date_time
 $year_month_day/$aws_region/s3/aws4_request
 $canonical_request_hash"
+  else
+    sts_data="$1"
+  fi
 
   date_key=$(echo -n "$year_month_day" | openssl dgst -sha256 -mac HMAC -macopt key:"AWS4${aws_secret_access_key}" | awk '{print $2}')
   date_region_key=$(echo -n "$aws_region" | openssl dgst -sha256 -mac HMAC -macopt hexkey:"$date_key" | awk '{print $2}')
@@ -62,8 +66,10 @@ $canonical_request_hash"
                    -mac HMAC \
                    -macopt hexkey:"$signing_key" | awk '{print $2}')
 
-  curl_command=()
-  add_command_recording_if_enabled
+  if [ $# -eq 0 ]; then
+    curl_command=()
+    add_command_recording_if_enabled
+  fi
 }
 
 add_parameter() {

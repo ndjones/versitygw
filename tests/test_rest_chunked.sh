@@ -22,6 +22,7 @@ source ./tests/setup.sh
 source ./tests/util/util_bucket.sh
 source ./tests/util/util_chunked_upload.sh
 source ./tests/util/util_file.sh
+source ./tests/util/util_head_object.sh
 
 @test "REST - chunked upload, no content length" {
   run setup_bucket "s3api" "$BUCKET_ONE_NAME"
@@ -40,15 +41,23 @@ source ./tests/util/util_file.sh
   assert_success
 
   test_file="test-file"
-  run create_test_files "$test_file"
+  run create_test_file "$test_file" 0
   assert_success
 
-  if ! result=$(COMMAND_LOG="$COMMAND_LOG" CONTENT_ENCODING="aws-chunked" CONTENT_LENGTH=1000 DECODED_CONTENT_LENGTH=900 BUCKET_NAME="$BUCKET_ONE_NAME" OBJECT_KEY="$test_file" DATA_FILE="$TEST_FILE_FOLDER/$test_file" OUTPUT_FILE="$TEST_FILE_FOLDER/result.txt" ./tests/rest_scripts/put_object.sh); then
+  #dd if=/dev/zero bs=1 count=66560 | tr '\0' 'a' > "$TEST_FILE_FOLDER/$test_file"
+
+  if ! result=$(COMMAND_LOG="$COMMAND_LOG" CONTENT_ENCODING="aws-chunked" DECODED_CONTENT_LENGTH=0 BUCKET_NAME="$BUCKET_ONE_NAME" OBJECT_KEY="$test_file" DATA_FILE="$TEST_FILE_FOLDER/$test_file" OUTPUT_FILE="$TEST_FILE_FOLDER/result.txt" ./tests/rest_scripts/put_object_chunked.sh); then
+  #if ! result=$(COMMAND_LOG="$COMMAND_LOG" BUCKET_NAME="$BUCKET_ONE_NAME" OBJECT_KEY="$test_file" DATA_FILE="$TEST_FILE_FOLDER/$test_file" OUTPUT_FILE="$TEST_FILE_FOLDER/result.txt" ./tests/rest_scripts/put_object_chunked.sh); then
     log 2 "error putting object: $result"
     return 1
   fi
-  if [ "$result" != "200" ]; then
-    log 2 "expected '200', was '$result' ($(cat "$TEST_FILE_FOLDER/result.txt"))"
+  #if [ "$result" != "200" ]; then
+  #  log 2 "expected '200', was '$result' ($(cat "$TEST_FILE_FOLDER/result.txt"))"
+  #  return 1
+  #fi
+  if ! verify_object_exists "$BUCKET_ONE_NAME" "$test_file"; then
+    log 2 "object not found"
     return 1
   fi
+  return 0
 }

@@ -26,24 +26,6 @@ bucket_name="$BUCKET_NAME"
 key="$OBJECT_KEY"
 # shellcheck disable=SC2153,SC2154
 checksum="$CHECKSUM"
-content_encoding="$CONTENT_ENCODING"
-content_length="$CONTENT_LENGTH"
-decoded_content_length="$DECODED_CONTENT_LENGTH"
-
-add_single_empty_chunk() {
-
-  empty_payload_hash="$(echo -n "" | sha256sum | awk '{print $1}')"
-
-  chunk_sts_data="AWS4-HMAC-SHA256-PAYLOAD
-$current_date_time
-$year_month_day/$aws_region/s3/aws4_request
-$canonical_request_hash
-$empty_payload_hash
-$empty_payload_hash"
-
-  create_canonical_hash_sts_and_signature "$chunk_sts_data"
-  chunk_signature="$signature"
-}
 
 build_canonical_request_string() {
   signed_params=""
@@ -101,36 +83,14 @@ create_canonical_hash_sts_and_signature
 
 echo "$sts_data" > "sts_data.txt"
 
-curl_command+=(curl --trace - --max-time 60 -ksv -w "\"%{http_code}\"" -X PUT "$AWS_ENDPOINT_URL/$bucket_name/$key")
-curl_command+=(-H "\"Authorization: AWS4-HMAC-SHA256 Credential=$aws_access_key_id/$year_month_day/$aws_region/s3/aws4_request,SignedHeaders=$signed_params,Signature=$signature\"")
-if [ "$content_encoding" != "" ]; then
-  curl_command+=(-H "\"content-encoding: $content_encoding\"")
-fi
-if [ "$content_length" != "" ]; then
-  curl_command+=(-H "\"content-length: $content_length\"")
-fi
-if [ "$checksum" == "true" ]; then
-  curl_command+=(-H "\"x-amz-checksum-sha256: $checksum_hash\"")
-fi
-curl_command+=(-H "\"x-amz-content-sha256: $payload_hash\"")
-curl_command+=(-H "\"x-amz-date: $current_date_time\"")
-if [ "$decoded_content_length" != "" ]; then
-  curl_command+=(-H "\"x-amz-decoded-content-length: $decoded_content_length\"")
-fi
-if [ "$CONTENT_ENCODING" == "" ]; then
-  curl_command+=(-T "$data_file")
-  curl_command+=(-o "$OUTPUT_FILE")
-else
-  curl_command+=(-H "\"Transfer-Encoding: chunked\"")
-  curl_command+=(-H "\"Content-Type: text/plain\"")
-  curl_command+=(-o "$OUTPUT_FILE")
-  add_single_empty_chunk
-  curl_command+=(--data-binary "$(echo -e '0\r\n\r\n')0\;chunk-signature=$chunk_signature$(echo -e '\r\n0\r\n\r\n')")
-  #curl_command+=("$(echo -e '\r\n\r\n')0$(echo -e '\r\n\r\n')")
-fi
-# shellcheck disable=SC2154
-eval "${curl_command[*]}" 2>&1
-curl_response=$?
-if [ -n "$COMMAND_LOG" ] && [ "$curl_response" != "0" ]; then
-  echo "curl response code: $curl_response" >> "$COMMAND_LOG"
-fi
+  string_one="PUT /$bucket_name/$key HTTP/1.1
+Host: $host
+Authorization: AWS4-HMAC-SHA256 Credential=$aws_access_key_id/$year_month_day/$aws_region/s3/aws4_request,SignedHeaders=$signed_params,Signature=$signature
+x-amz-content-sha256: $payload_hash
+x-amz-date: $current_date_time
+Content-Length: $(wc -c "$DATA_FILE" | awk '{print $1}')
+
+$(cat "$DATA_FILE")
+
+"
+echo -en "${string_one//$'\n'/$'\r\n'}"
