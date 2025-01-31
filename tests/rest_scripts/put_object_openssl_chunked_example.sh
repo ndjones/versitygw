@@ -37,14 +37,12 @@ if [ "$test_mode" == "true" ]; then
   aws_access_key_id="AKIAIOSFODNN7EXAMPLE"
   aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
   aws_region="us-east-1"
+  host="s3.amazonaws.com"
 else
   current_date_time=$(date -u +"%Y%m%dT%H%M%SZ")
   year_month_day=$(echo "$current_date_time" | cut -c1-8)
   bucket_name="versity-gwtest-bucket-luke-four-2"
   key="chunkObject.txt"
-  aws_access_key_id="$AWS_ACCESS_KEY_ID"
-  aws_secret_access_key="$AWS_SECRET_ACCESS_KEY"
-  aws_region="$AWS_REGION"
 fi
 
 canonical_request="PUT
